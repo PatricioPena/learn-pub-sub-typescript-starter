@@ -2,6 +2,7 @@ import amqp from "amqplib";
 import process from 'node:process';
 import { publishJSON } from "../internal/pubsub/publish.js";
 import { ExchangePerilDirect, PauseKey } from "../internal/routing/routing.js";
+import { getInput, printServerHelp } from "../internal/gamelogic/gamelogic.js";
 
 async function main() {
   console.log("Starting Peril server...");
@@ -9,12 +10,37 @@ async function main() {
   const conn = await amqp.connect(rabbitConnString);
   console.log("Connection was successful");
   const confirmedChannel = await conn.createConfirmChannel();
-  try{
-    await publishJSON(confirmedChannel, ExchangePerilDirect, PauseKey, { isPaused: true });
-  }catch(err){
-    throw new Error(`Error found: ${err}`)
-  }
+  printServerHelp();
 
+  while (true) {
+    const words = await getInput();
+    if (words.length === 0) {
+      continue;
+    }
+    if (words[0] === "resume") {
+      console.log("sending a resume...")
+      try {
+        await publishJSON(confirmedChannel, ExchangePerilDirect, PauseKey, { isPaused: false });
+      } catch (err) {
+        console.log(`Error found: ${err}`)
+      }
+    }
+    else if (words[0] === "pause") {
+      console.log("sending a pause...")
+      try {
+        await publishJSON(confirmedChannel, ExchangePerilDirect, PauseKey, { isPaused: true });
+      } catch (err) {
+        console.log(`Error found: ${err}`)
+      }
+    }
+    else if (words[0] === "quit") {
+      console.log("sending a exit...");
+      break;
+    }
+    else {
+      console.log("Unknown command");
+    }
+  }
   process.on('SIGINT', async () => {
     console.log(`Signal received, shutting down`);
     await conn.close();
