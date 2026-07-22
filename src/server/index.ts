@@ -1,7 +1,7 @@
 import amqp from "amqplib";
 import process from 'node:process';
 import { publishJSON } from "../internal/pubsub/publish.js";
-import { ExchangePerilDirect, PauseKey } from "../internal/routing/routing.js";
+import { ExchangePerilDirect, GameLogSlug , ExchangePerilTopic, PauseKey } from "../internal/routing/routing.js";
 import { getInput, printServerHelp } from "../internal/gamelogic/gamelogic.js";
 
 async function main() {
@@ -11,6 +11,14 @@ async function main() {
   console.log("Connection was successful");
   const confirmedChannel = await conn.createConfirmChannel();
   printServerHelp();
+  
+  await confirmedChannel.assertQueue(GameLogSlug, {
+    durable: true,
+    autoDelete: false,
+    exclusive: false
+  })
+
+  await confirmedChannel.bindQueue(GameLogSlug, ExchangePerilTopic, "game_logs.*");
 
   while (true) {
     const words = await getInput();
