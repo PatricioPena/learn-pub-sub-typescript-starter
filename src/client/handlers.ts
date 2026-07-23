@@ -25,14 +25,18 @@ export function handlerMove(gs: GameState, ch: ConfirmChannel): (move: ArmyMove)
             return AckType.Ack;
         }
         else if (result === MoveOutcome.MakeWar) {
-            const routingKey = `${routing.WarRecognitionsPrefix}.${gs.getPlayerSnap().username}`;
-            const rw: RecognitionOfWar = {
-                attacker: move.player,
-                defender: gs.getPlayerSnap(),
-            };
-            await publishJSON(ch, routing.ExchangePerilTopic, routingKey, rw);
-            process.stdout.write("> ");
-            return AckType.NackRequeue;
+            try {
+                const routingKey = `${routing.WarRecognitionsPrefix}.${gs.getPlayerSnap().username}`;
+                const rw: RecognitionOfWar = {
+                    attacker: move.player,
+                    defender: gs.getPlayerSnap(),
+                };
+                await publishJSON(ch, routing.ExchangePerilTopic, routingKey, rw);
+                process.stdout.write("> ");
+                return AckType.Ack;
+            }catch{
+                return AckType.NackRequeue;
+            }
         }
         else {
             process.stdout.write("> ");
@@ -45,23 +49,23 @@ export function handlerMove(gs: GameState, ch: ConfirmChannel): (move: ArmyMove)
 export function handlerWar(gs: GameState): (rw: RecognitionOfWar) => Promise<AckType> {
     return async (rw: RecognitionOfWar) => {
         const result = handleWar(gs, rw);
-        if( result.result === WarOutcome.NotInvolved){
+        if (result.result === WarOutcome.NotInvolved) {
             process.stdout.write("> ");
             return AckType.NackRequeue;
         }
-        else if( result.result === WarOutcome.NoUnits){
+        else if (result.result === WarOutcome.NoUnits) {
             process.stdout.write("> ");
             return AckType.NackDiscard;
         }
-        else if( result.result === WarOutcome.OpponentWon){
+        else if (result.result === WarOutcome.OpponentWon) {
             process.stdout.write("> ");
             return AckType.Ack;
         }
-        else if( result.result === WarOutcome.YouWon){
+        else if (result.result === WarOutcome.YouWon) {
             process.stdout.write("> ");
             return AckType.Ack;
         }
-        else if( result.result === WarOutcome.Draw){
+        else if (result.result === WarOutcome.Draw) {
             process.stdout.write("> ");
             return AckType.Ack;
         }
@@ -70,6 +74,6 @@ export function handlerWar(gs: GameState): (rw: RecognitionOfWar) => Promise<Ack
             process.stdout.write("> ");
             return AckType.NackDiscard;
         }
-        
+
     }
 }
