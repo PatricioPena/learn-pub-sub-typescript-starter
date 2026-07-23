@@ -1,13 +1,14 @@
 import amqp from "amqplib";
 import { clientWelcome, commandStatus, getInput, printClientHelp, printQuit } from "../internal/gamelogic/gamelogic.js";
 import {  SimpleQueueType, subscribeJSON } from "../internal/pubsub/consume.js";
-import { ExchangePerilDirect, PauseKey } from "../internal/routing/routing.js";
+import { ExchangePerilDirect, PauseKey, WarRecognitionsPrefix } from "../internal/routing/routing.js";
 import { GameState } from "../internal/gamelogic/gamestate.js";
 import { commandMove } from "../internal/gamelogic/move.js";
 import { commandSpawn } from "../internal/gamelogic/spawn.js";
-import { handlerPause, handlerMove } from "./handlers.js";
+import { handlerPause, handlerMove, handlerWar } from "./handlers.js";
 import { ArmyMovesPrefix, ExchangePerilTopic } from "../internal/routing/routing.js";
 import { publishJSON } from "../internal/pubsub/publish.js";
+import { channel } from "diagnostics_channel";
 
 async function main() {
   console.log("Starting Peril client...");
@@ -30,9 +31,10 @@ async function main() {
 );
 
   const newGame = new GameState(username);
-  await subscribeJSON(conn, ExchangePerilDirect, `pause.${username}`, PauseKey, SimpleQueueType.Transient, handlerPause(newGame))
-  await subscribeJSON(conn, ExchangePerilTopic, `${ArmyMovesPrefix}.${username}`, `${ArmyMovesPrefix}.*`, SimpleQueueType.Transient, handlerMove(newGame))
   const publishCh = await conn.createConfirmChannel();
+  await subscribeJSON(conn, ExchangePerilDirect, `pause.${username}`, PauseKey, SimpleQueueType.Transient, handlerPause(newGame))
+  await subscribeJSON(conn, ExchangePerilTopic, `${ArmyMovesPrefix}.${username}`, `${ArmyMovesPrefix}.*`, SimpleQueueType.Transient, handlerMove(newGame, publishCh))
+  await subscribeJSON(conn, ExchangePerilTopic, "war",`${WarRecognitionsPrefix}.*`, SimpleQueueType.Durable, handlerWar(newGame));
   
   while (true) {
     const words = await getInput();

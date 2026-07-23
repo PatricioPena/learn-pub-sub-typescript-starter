@@ -56,7 +56,7 @@ export async function subscribeJSON<T>(
     queueName: string,
     key: string,
     queueType: SimpleQueueType,
-    handler: (data: T) => Promise<AckType>,
+    handler: (data: T) => Promise<AckType> | AckType,
 ): Promise<void> {
     const decBind = await declareAndBind(conn, exchange, queueName, key, queueType);
     const channel = decBind[0];
