@@ -1,8 +1,14 @@
 import amqp from "amqplib";
 import process from 'node:process';
 import { publishJSON } from "../internal/pubsub/publish.js";
-import { ExchangePerilDirect, GameLogSlug , ExchangePerilTopic, PauseKey } from "../internal/routing/routing.js";
+import { ExchangePerilDirect, GameLogSlug, ExchangePerilTopic, PauseKey } from "../internal/routing/routing.js";
 import { getInput, printServerHelp } from "../internal/gamelogic/gamelogic.js";
+import { writeLog, type GameLog } from "../internal/gamelogic/logs.js";
+import {
+  subscribeMsgPack,
+  AckType,
+  SimpleQueueType,
+} from "../internal/pubsub/consume.js";
 
 async function main() {
   console.log("Starting Peril server...");
@@ -11,14 +17,17 @@ async function main() {
   console.log("Connection was successful");
   const confirmedChannel = await conn.createConfirmChannel();
   printServerHelp();
-  
-  await confirmedChannel.assertQueue(GameLogSlug, {
-    durable: true,
-    autoDelete: false,
-    exclusive: false
-  })
 
-  await confirmedChannel.bindQueue(GameLogSlug, ExchangePerilTopic, "game_logs.*");
+  await subscribeMsgPack<GameLog>(conn,
+    ExchangePerilTopic,
+    GameLogSlug,
+    "game_logs.*",
+    SimpleQueueType.Durable,
+    async (gameLog) => {
+      await writeLog(gameLog);
+      printServerHelp();
+      return AckType.Ack;
+    },);
 
   while (true) {
     const words = await getInput();

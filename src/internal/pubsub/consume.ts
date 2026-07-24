@@ -1,6 +1,7 @@
 import amqp from 'amqplib';
 import { type Channel } from 'amqplib'
 import { ExchangePerilDlx } from '../routing/routing.js';
+import { decode } from "@msgpack/msgpack";
 
 export enum SimpleQueueType {
     Durable,
@@ -66,6 +67,39 @@ export async function subscribeJSON<T>(
             return
         }
         const parseMessage = JSON.parse(message.content.toString());
+        const result = await handler(parseMessage);
+        if(result === AckType.Ack ){
+            channel.ack(message);
+            console.log("Ack action occured");
+        }
+        else if(result === AckType.NackRequeue){
+            channel.nack(message, false, true);
+            console.log("Nack Requeue action occured");
+        }
+        else if(result === AckType.NackDiscard){
+            channel.nack(message, false, false);
+            console.log("Nack Discard action occured");
+        }
+        
+    })
+}
+
+export async function subscribeMsgPack<T>(
+    conn: amqp.ChannelModel,
+    exchange: string,
+    queueName: string,
+    key: string,
+    queueType: SimpleQueueType,
+    handler: (data: T) => Promise<AckType> | AckType,
+): Promise<void> {
+    const decBind = await declareAndBind(conn, exchange, queueName, key, queueType);
+    const channel = decBind[0];
+    const queue = decBind[1];
+    await channel.consume(queue.queue, async (message: amqp.ConsumeMessage | null) => {
+        if(!message){
+            return
+        }
+        const parseMessage = decode(message.content) as T;
         const result = await handler(parseMessage);
         if(result === AckType.Ack ){
             channel.ack(message);
