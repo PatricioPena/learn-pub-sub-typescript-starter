@@ -10,6 +10,7 @@ import { ArmyMovesPrefix, ExchangePerilTopic } from "../internal/routing/routing
 import { publishJSON, publishMsgPack } from "../internal/pubsub/publish.js";
 import { channel } from "diagnostics_channel";
 import type { GameLog } from "../internal/gamelogic/logs.js";
+import { getMaliciousLog } from "../internal/gamelogic/gamelogic.js";
 
 async function main() {
   console.log("Starting Peril client...");
@@ -68,7 +69,15 @@ async function main() {
       printClientHelp();
     }
     else if (words[0] === "spam") {
-      console.log("Spamming not allowed yet!");
+      if(!words[1]){
+        console.log("Command missing");
+        continue;
+      }
+      const count = parseInt(words[1]);
+      for(let i = 0; i < count; i++){
+        const message = getMaliciousLog();
+        await publishGameLog(publishCh, username, message);
+      }
     }
     else if (words[0] === "quit") {
       printQuit();
